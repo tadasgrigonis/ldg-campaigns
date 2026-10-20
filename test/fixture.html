@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ldg fixture</title>
+<style>
+  [data-hide-live]{display:none!important}
+  .w-condition-invisible{display:none!important}
+  body{margin:0;font:14px sans-serif}
+  .bar{position:fixed;top:0;left:0;right:0;height:40px;background:#fc0;z-index:20}
+  .nav{position:fixed;top:0;left:0;right:0;height:60px;background:#333;color:#fff;z-index:10}
+  .hero{padding-top:60px;height:300px;background:#eee}
+  .popup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:30}
+  .panel{background:#fff;padding:20px}
+</style></head>
+<body>
+<div class="campaigns">
+  <div data-hide-live data-ldg-campaign="test-global" data-ldg-live="true" data-ldg-start="October 1, 2026" data-ldg-start-time="" data-ldg-end="December 31, 2026" data-ldg-end-time="23:59" data-ldg-exclude="/nothing">
+    <div style="display:none"><div data-ldg-country></div><div data-ldg-country></div><div data-ldg-country></div><div data-ldg-country></div><div data-ldg-country></div></div>
+    <div class="bar" data-ldg-bar>Global banner
+      <span data-countdown="days">00</span>:<span data-countdown="hours">00</span>:<span data-countdown="minutes">00</span>:<span data-countdown="seconds">00</span>
+      <span data-ldg-copy><span data-ldg-code>TESTGLOBAL</span> <span data-ldg-copied>Copied!</span></span>
+      <a href="#" data-ldg-close>Close banner</a>
+    </div>
+    <div class="popup" data-ldg-popup><div class="panel" data-ldg-dialog><h2 data-ldg-title>Global pop-up</h2><a href="#">CTA</a> <button data-ldg-close>Close pop-up</button></div></div>
+  </div>
+  <div data-hide-live data-ldg-campaign="test-spain" data-ldg-live="true" data-ldg-start="2026-10-15" data-ldg-start-time="09:00" data-ldg-end="2026-11-30" data-ldg-end-time="" data-ldg-exclude="">
+    <div style="display:none"><div data-ldg-country>ES</div><div data-ldg-country></div><div data-ldg-country></div><div data-ldg-country></div><div data-ldg-country></div></div>
+    <div class="bar" data-ldg-bar>Spain banner</div>
+    <div class="popup w-condition-invisible" data-ldg-popup><div class="panel" data-ldg-dialog><h2 data-ldg-title>Spain pop-up (Display on: Banner)</h2></div></div>
+  </div>
+  <div data-hide-live data-ldg-campaign="test-ended" data-ldg-live="true" data-ldg-start="2026-10-01" data-ldg-end="2026-10-10">
+    <div class="bar" data-ldg-bar>Ended banner</div>
+  </div>
+</div>
+<div class="nav" promo-banner="push-down">nav</div>
+<div class="hero" promo-banner="push-down">hero</div>
+<div style="height:3000px"></div>
+<script src="../campaigns.js"></script>
+</body></html>

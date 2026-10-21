@@ -13,7 +13,7 @@ During development the repo is served by GitHub Pages and loaded only on the WIP
 | `data-hide-live` | Collection Item | Removed from the chosen item to show it |
 | `data-ldg-campaign` | Collection Item, bound to Slug | Campaign key for preview, storage and debug |
 | `data-ldg-live`, `data-ldg-start`, `data-ldg-start-time`, `data-ldg-end`, `data-ldg-end-time`, `data-ldg-exclude` | Collection Item, bound | Rules |
-| `data-ldg-country` | Five hidden texts bound to Country N: ISO code | Country codes; empty ones ignored |
+| `data-ldg-country` | Hidden text bound to Country: ISO code | Country code; empty means global |
 | `data-ldg-bar` | Banner block, fixed to the top | Slides in, retracts on scroll, closes |
 | `promo-banner="push-down"` | Nav, hero and anything the banner covers | Pushed down by the banner's height while it shows |
 | `data-ldg-popup` | Pop-up overlay, styled as open | Kept closed until exit intent; backdrop click closes |

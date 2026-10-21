@@ -13,7 +13,7 @@
 })(function () {
   'use strict';
 
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
 
   var CFG = {
     tz: 'Europe/Madrid',                       // every date and time is Barcelona time

@@ -112,10 +112,11 @@ t('regional beats a newer global', function () {
   var r = pick([c('global', { start: Date.UTC(2026, 9, 19) }), c('es', { countries: ['ES'], start: Date.UTC(2026, 9, 1) })], { country: 'ES' });
   assert.strictEqual(r.chosen.slug, 'es');
 });
-t('five countries', function () {
-  var five = c('five', { countries: ['FR', 'IT', 'PT', 'GR', 'AT'] });
-  assert.strictEqual(pick([five], { country: 'AT' }).chosen.slug, 'five');
-  assert.strictEqual(pick([five], { country: 'DE' }).chosen, null);
+t('one item per country', function () {
+  var items = [c('fr', { countries: ['FR'] }), c('it', { countries: ['IT'] })];
+  assert.strictEqual(pick(items, { country: 'FR' }).chosen.slug, 'fr');
+  assert.strictEqual(pick(items, { country: 'IT' }).chosen.slug, 'it');
+  assert.strictEqual(pick(items, { country: 'DE' }).chosen, null);
 });
 t('schedule and Live', function () {
   assert.strictEqual(pick([c('future', { start: Date.UTC(2026, 11, 1) })]).chosen, null);

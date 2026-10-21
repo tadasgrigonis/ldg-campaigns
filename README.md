@@ -8,7 +8,7 @@ During development the repo is served by GitHub Pages and loaded only on the WIP
 
 ## Attribute contract
 
-Classes follow Client-First with the `campaigns_` prefix (`campaigns_item`, `campaigns_bar`, `campaigns_dialog`, ...); the script never reads them. It reads only these attributes:
+The bar and the dialog are Webflow components (Campaigns Bar, Campaigns Dialog) with variants A and B, nested in the Campaigns component's list item; Campaigns Countdown and Campaigns Code are shared by both. Classes follow Client-First with one prefix per component (`campaigns_`, `campaigns-bar_`, `campaigns-dialog_`, `campaigns-countdown_`, `campaigns-code_`). The script never reads classes, only these attributes:
 
 | Attribute | On | Script |
 | --- | --- | --- |

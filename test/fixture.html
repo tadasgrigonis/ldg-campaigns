@@ -4,30 +4,30 @@
   [data-hide-live]{display:none!important}
   .w-condition-invisible{display:none!important}
   body{margin:0;font:14px sans-serif}
-  .campaigns_bar{position:fixed;top:0;left:0;right:0;height:40px;background:#fc0;z-index:20}
+  .campaigns-bar_component{position:fixed;top:0;left:0;right:0;height:40px;background:#fc0;z-index:20}
   .nav{position:fixed;top:0;left:0;right:0;height:60px;background:#333;color:#fff;z-index:10}
   .hero{padding-top:60px;height:300px;background:#eee}
-  .campaigns_dialog{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:30}
-  .campaigns_dialog-panel{background:#fff;padding:20px}
+  .campaigns-dialog_component{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:30}
+  .campaigns-dialog_panel{background:#fff;padding:20px}
 </style></head>
 <body>
 <div class="campaigns_component"><div class="campaigns_list">
   <div class="campaigns_item" data-hide-live data-campaign="test-global" data-campaign-live="true" data-campaign-start="October 1, 2026" data-campaign-start-time="" data-campaign-end="December 31, 2026" data-campaign-end-time="23:59" data-campaign-exclude="/nothing">
     <div style="display:none" data-campaign-country></div>
-    <div class="campaigns_bar" data-campaign-bar>Global banner
+    <div class="campaigns-bar_component" data-campaign-bar>Global banner
       <span data-campaign-countdown="days">00</span>:<span data-campaign-countdown="hours">00</span>:<span data-campaign-countdown="minutes">00</span>:<span data-campaign-countdown="seconds">00</span>
       <span data-campaign-copy><span data-campaign-code>TESTGLOBAL</span> <span data-campaign-copied>Copied!</span></span>
       <a href="#" data-campaign-close>Close banner</a>
     </div>
-    <div class="campaigns_dialog" data-campaign-dialog><div class="campaigns_dialog-panel" data-campaign-panel><h2 data-campaign-title>Global pop-up</h2><a href="#">CTA</a> <button data-campaign-close>Close pop-up</button></div></div>
+    <div class="campaigns-dialog_component" data-campaign-dialog><div class="campaigns-dialog_panel" data-campaign-panel><h2 data-campaign-title>Global pop-up</h2><a href="#">CTA</a> <button data-campaign-close>Close pop-up</button></div></div>
   </div>
   <div class="campaigns_item" data-hide-live data-campaign="test-spain" data-campaign-live="true" data-campaign-start="2026-10-15" data-campaign-start-time="09:00" data-campaign-end="2026-11-30" data-campaign-end-time="" data-campaign-exclude="">
     <div style="display:none" data-campaign-country>ES</div>
-    <div class="campaigns_bar" data-campaign-bar>Spain banner</div>
-    <div class="campaigns_dialog w-condition-invisible" data-campaign-dialog><div class="campaigns_dialog-panel" data-campaign-panel><h2 data-campaign-title>Spain pop-up (Display on: Banner)</h2></div></div>
+    <div class="campaigns-bar_component" data-campaign-bar>Spain banner</div>
+    <div class="campaigns-dialog_component w-condition-invisible" data-campaign-dialog><div class="campaigns-dialog_panel" data-campaign-panel><h2 data-campaign-title>Spain pop-up (Display on: Banner)</h2></div></div>
   </div>
   <div class="campaigns_item" data-hide-live data-campaign="test-ended" data-campaign-live="true" data-campaign-start="2026-10-01" data-campaign-end="2026-10-10">
-    <div class="campaigns_bar" data-campaign-bar>Ended banner</div>
+    <div class="campaigns-bar_component" data-campaign-bar>Ended banner</div>
   </div>
 </div></div>
 <div class="nav" promo-banner="push-down">nav</div>

@@ -13,7 +13,7 @@
 })(function () {
   'use strict';
 
-  var VERSION = '0.1.0';
+  var VERSION = '0.2.0';
 
   var CFG = {
     tz: 'Europe/Madrid',                       // every date and time is Barcelona time
@@ -22,7 +22,7 @@
     geoTtlMs: 24 * 3600e3,
     geoTimeoutMs: 1500,
     bannerDismissMs: 24 * 3600e3,              // banner close: hidden for this long, per campaign
-    popupPauseMs: 7 * 24 * 3600e3,             // pop-up close: not again for this long, per campaign
+    popupPauseMs: 7 * 24 * 3600e3,             // pop-up shown: not again for this long, per campaign
     exitArmMs: 3000,                           // exit intent ignored for the first 3 s
     exitTopPx: 8,
     retractAtPx: 10,                           // banner slides out past this scroll position
@@ -92,8 +92,8 @@
   }
 
   function endMoment(date, time, tz) {
-    var t = parseTime(time, { h: 23, mi: 59, s: 59 });
-    if (t.h === 23 && t.mi === 59) t.s = 59;                 // 23:59 means the end of the day
+    var t = parseTime(time, { h: 23, mi: 59, s: 0 });        // empty means 23:59
+    if (t.h === 23 && t.mi === 59) t.s = 59;                 // and 23:59 means the end of the day
     return wallTimeToUtc(date.y, date.mo, date.d, t.h, t.mi, t.s, tz);
   }
 
@@ -199,16 +199,14 @@
 
   function log() {
     if (!debugOn) return;
-    var a = Array.prototype.slice.call(arguments);
-    a.unshift('[ldg]');
-    console.log.apply(console, a);
+    console.log.apply(console, ['[ldg]'].concat(Array.from(arguments)));
   }
 
   function emit(name, detail) {
-    try { document.dispatchEvent(new CustomEvent('ldg:' + name, { detail: detail })); } catch (e) { /* old browsers */ }
+    document.dispatchEvent(new CustomEvent('ldg:' + name, { detail: detail }));
   }
 
-  function toArray(list) { return Array.prototype.slice.call(list || []); }
+  function toArray(list) { return Array.from(list || []); }
 
   // Elements hidden by Webflow conditional visibility stay in the HTML with this class.
   function rendered(node, root) {
@@ -273,12 +271,20 @@
     try {
       var cached = JSON.parse(local.get('geo_country') || 'null');
       if (cached && cached.c) {
+        // geo_country is a shared key: accept a timestamp in seconds too, in case another script writes it
         var t = +cached.t; if (t && t < 1e12) t *= 1000;
         if (t && Date.now() - t < CFG.geoTtlMs) return cb(cleanCountry(cached.c), 'cache');
       }
     } catch (e) { /* ignore a malformed cache */ }
+    // A failed lookup is remembered for the session, so later pages don't wait for it again
+    if (session.get('ldg_geo_failed')) return cb(null, 'failed earlier this session');
     var done = false;
-    function finish(c, src) { if (done) return; done = true; cb(c, src); }
+    function finish(c, src) {
+      if (done) return;
+      done = true;
+      if (!c) session.set('ldg_geo_failed', '1');
+      cb(c, src);
+    }
     var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     setTimeout(function () { if (ctrl) ctrl.abort(); finish(null, 'timeout'); }, CFG.geoTimeoutMs);
     fetch('/cdn-cgi/trace', { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
@@ -297,7 +303,7 @@
   function startBanner(item, bar, opts) {
     var pushEls = toArray(document.querySelectorAll('[promo-banner="push-down"]'));
     var dur = CFG.animMs + 'ms cubic-bezier(.2,.7,.2,1)';
-    var visible = false, closed = false, ticking = false;
+    var visible = false, closed = false, ticking = false, height = 0;
 
     function y() { return window.scrollY || document.documentElement.scrollTop || 0; }
     function offset(px, animate) {
@@ -306,12 +312,14 @@
         el.style.setProperty('margin-top', px + 'px', 'important');
       });
     }
+    // Runs only when the banner slides in or out, not on every scroll frame
     function place(on, animate) {
       bar.style.transition = animate ? 'transform ' + dur + ', opacity ' + dur : 'none';
       bar.style.transform = on ? 'translateY(0)' : 'translateY(-100%)';
       bar.style.opacity = on ? '1' : '0';
       bar.style.pointerEvents = on ? '' : 'none';
-      offset(on ? bar.offsetHeight : 0, animate);
+      if (on) height = bar.offsetHeight;
+      offset(on ? height : 0, animate);
       if (on !== visible) { visible = on; emit('banner', { visible: on, campaign: item.slug }); }
     }
     function onScroll() {
@@ -325,14 +333,25 @@
         else if (!visible && pos <= CFG.returnAtPx) place(true, true);
       });
     }
-    function onResize() { if (visible && !closed) offset(bar.offsetHeight, false); }
+    // The banner's height changes with the window width, and when web fonts load or the text wraps:
+    // keep the push-down equal to it. Unchanged heights are ignored, so the slide-in isn't cut short.
+    function onResize() {
+      if (!visible || closed) return;
+      var h = bar.offsetHeight;
+      if (h !== height) { height = h; offset(h, false); }
+    }
+    var watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(onResize) : null;
+    function unwatch() {
+      window.removeEventListener('scroll', onScroll);
+      if (watcher) watcher.disconnect(); else window.removeEventListener('resize', onResize);
+    }
 
     bar.style.display = '';
     place(false, false);
     void bar.offsetHeight;                                   // commit the hidden state so the slide-in animates
     if (y() <= CFG.retractAtPx) requestAnimationFrame(function () { place(true, true); });
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onResize);
+    if (watcher) watcher.observe(bar); else window.addEventListener('resize', onResize);
 
     return {
       close: function () {
@@ -341,28 +360,39 @@
         place(false, true);
         if (!opts.preview) local.set('ldg_bar_' + item.slug, String(Date.now()));
         setTimeout(function () { bar.style.display = 'none'; }, CFG.animMs + 30);
-        window.removeEventListener('scroll', onScroll);
-        window.removeEventListener('resize', onResize);
+        unwatch();
         emit('banner_close', { campaign: item.slug });
       },
       stop: function () {
+        if (closed) return;
         closed = true;
         place(false, true);
-        window.removeEventListener('scroll', onScroll);
-        window.removeEventListener('resize', onResize);
+        unwatch();
       }
     };
   }
 
   /* Pop-up: exit intent, dialog behaviour, HubSpot form --------------------- */
 
+  // Loads the HubSpot forms script once, reusing a copy the page already has or is loading.
+  var hsWaiting = null;
   function loadHubspot(cb) {
     if (window.hbspt && window.hbspt.forms) return cb();
-    var s = document.createElement('script');
-    s.src = CFG.hubspot.src;
-    s.async = true;
-    s.onload = function () { cb(); };
-    document.head.appendChild(s);
+    if (hsWaiting) { hsWaiting.push(cb); return; }
+    hsWaiting = [cb];
+    var s = document.querySelector('script[src*="hsforms.net/forms/"]');
+    if (!s) {
+      s = document.createElement('script');
+      s.src = CFG.hubspot.src;
+      s.async = true;
+      document.head.appendChild(s);
+    }
+    s.addEventListener('load', function () {
+      var q = hsWaiting || [];
+      hsWaiting = null;
+      q.forEach(function (f) { f(); });
+    });
+    s.addEventListener('error', function () { hsWaiting = null; log('HubSpot script failed to load'); });
   }
 
   function mountForm(item, popup) {
@@ -373,6 +403,7 @@
     box.setAttribute('data-ldg-mounted', '1');
     if (!box.id) box.id = 'ldg-form-' + item.slug;
     loadHubspot(function () {
+      if (!window.hbspt || !window.hbspt.forms) { log('HubSpot forms unavailable'); return; }
       window.hbspt.forms.create({
         region: CFG.hubspot.region, portalId: CFG.hubspot.portalId, formId: formId, target: '#' + box.id,
         onFormSubmitted: function () { emit('submit', { campaign: item.slug }); }
@@ -380,12 +411,13 @@
     });
   }
 
-  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  // iframe: a standard HubSpot embed renders the form inside one
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
 
   function createPopup(item, popup, opts) {
     var dialog = find(popup, '[data-ldg-dialog]') || popup;
     var title = find(popup, '[data-ldg-title]');
-    var lastFocus = null, isOpen = false;
+    var lastFocus = null, isOpen = false, onOut = null;
 
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
@@ -408,17 +440,33 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
     function onBackdrop(e) { if (e.target === popup) close(); }
+    // Tab out of an iframe (the HubSpot form) skips onKey, so catch focus that lands outside the dialog
+    function onFocusIn(e) {
+      if (dialog.contains(e.target)) return;
+      var f = focusables();
+      (f[0] || dialog).focus();
+    }
 
+    function disarm() {
+      if (onOut) document.removeEventListener('mouseout', onOut);
+      onOut = null;
+    }
     function open() {
       if (isOpen) return;
       isOpen = true;
-      if (!opts.preview) session.set('ldg_popup_session', item.slug);
+      disarm();
+      // Any exit counts (close, CTA, form, leaving the page): both caps start when the pop-up shows
+      if (!opts.preview) {
+        session.set('ldg_popup_session', item.slug);
+        local.set('ldg_popup_' + item.slug, String(Date.now()));
+      }
       lastFocus = document.activeElement;
       popup.style.display = '';                                // back to the display its class gives it
       mountForm(item, popup);
       var f = focusables();
       (f[0] || dialog).focus();
       document.addEventListener('keydown', onKey, true);
+      document.addEventListener('focusin', onFocusIn);
       popup.addEventListener('click', onBackdrop);
       emit('popup_open', { campaign: item.slug });
     }
@@ -426,36 +474,39 @@
       if (!isOpen) return;
       isOpen = false;
       popup.style.display = 'none';
-      if (!opts.preview) local.set('ldg_popup_' + item.slug, String(Date.now()));
       document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('focusin', onFocusIn);
       popup.removeEventListener('click', onBackdrop);
       if (lastFocus && lastFocus.focus) lastFocus.focus();
       emit('popup_close', { campaign: item.slug });
     }
 
+    // Returns true when the pop-up is armed (or opened, in preview)
     function arm() {
-      if (opts.preview) return open();
+      if (opts.preview) { open(); return true; }
       var why = '';
       if (!window.matchMedia(CFG.desktopQuery).matches) why = 'not a desktop';
       else if (session.get('ldg_popup_session')) why = 'already shown this session';
       else {
-        var closedAt = +local.get('ldg_popup_' + item.slug) || 0;
-        if (closedAt && Date.now() - closedAt < CFG.popupPauseMs) why = 'closed within the last 7 days';
+        var shownAt = +local.get('ldg_popup_' + item.slug) || 0;
+        if (shownAt && Date.now() - shownAt < CFG.popupPauseMs) why = 'shown within the last 7 days';
       }
-      if (why) { log('pop-up not armed:', why); return; }
+      if (why) { log('pop-up not armed:', why); return false; }
       var armedAt = Date.now() + CFG.exitArmMs;
-      function onOut(e) {
-        if (Date.now() < armedAt || e.relatedTarget || e.toElement) return;
+      onOut = function (e) {
+        if (Date.now() < armedAt || e.relatedTarget) return;
         if (e.clientY > CFG.exitTopPx) return;
-        document.removeEventListener('mouseout', onOut);
         open();
-      }
+      };
       document.addEventListener('mouseout', onOut);
       log('pop-up armed for exit intent');
+      return true;
     }
+    // Campaign ended: no exit intent from now on, and close it if it's open
+    function stop() { disarm(); close(); }
 
     popup.style.display = 'none';                              // closed until exit intent
-    return { arm: arm, open: open, close: close };
+    return { arm: arm, open: open, close: close, stop: stop };
   }
 
   /* Countdown and copy ------------------------------------------------------ */
@@ -483,7 +534,8 @@
       set('seconds', s % 60);
     }
     tick();
-    timer = setInterval(tick, 1000);
+    if (Date.now() < item.end) timer = setInterval(tick, 1000);
+    return function stop() { clearInterval(timer); };
   }
 
   function copyText(text) {
@@ -527,38 +579,55 @@
 
     el.removeAttribute('data-hide-live');
     var banner = bar && !barDismissed ? startBanner(item, bar, opts) : null;
+    var bannerLive = !!banner, popupLive = false, stopCountdown = null;
+    // Once the banner is closed and the pop-up is closed or never armed, nothing needs the countdown
+    function settle() { if (!bannerLive && !popupLive && stopCountdown) stopCountdown(); }
 
     el.addEventListener('click', function (e) {
-      var close = e.target.closest && e.target.closest('[data-ldg-close]');
+      var close = e.target.closest('[data-ldg-close]');
       if (close && el.contains(close)) {
         e.preventDefault();
         if (popupEl && popupEl.contains(close)) { if (popup) popup.close(); }
-        else if (banner) banner.close();
+        else if (banner) { banner.close(); bannerLive = false; settle(); }
         return;
       }
-      var copy = e.target.closest && e.target.closest('[data-ldg-copy]');
+      var copy = e.target.closest('[data-ldg-copy]');
       if (copy && el.contains(copy)) {
         e.preventDefault();
         var codeEl = copy.querySelector('[data-ldg-code]');
-        var code = (codeEl ? codeEl.textContent : copy.textContent).trim();
+        if (!codeEl) {                                         // no code element: read the module without its Copied label
+          codeEl = copy.cloneNode(true);
+          toArray(codeEl.querySelectorAll('[data-ldg-copied]')).forEach(function (n) { n.remove(); });
+        }
+        var code = codeEl.textContent.trim();
         var label = copy.querySelector('[data-ldg-copied]');
         copyText(code).then(function () {
-          if (label) { label.style.display = ''; setTimeout(function () { label.style.display = 'none'; }, 2000); }
+          if (label) {
+            label.style.display = '';
+            clearTimeout(label.ldgTimer);                      // a second click restarts the 2 s
+            label.ldgTimer = setTimeout(function () { label.style.display = 'none'; }, 2000);
+          }
           emit('copy', { campaign: item.slug });
         }).catch(function () { log('copy failed'); });
       }
     });
 
-    startCountdown(item, function () {
+    // However the pop-up closes (button, Escape, backdrop), it won't open again on this page
+    if (popup) document.addEventListener('ldg:popup_close', function (e) {
+      if (e.detail && e.detail.campaign === item.slug) { popupLive = false; settle(); }
+    });
+
+    stopCountdown = startCountdown(item, function () {
       if (opts.preview) return;                                // preview keeps showing an ended campaign
       log('campaign ended:', item.slug);
       if (banner) banner.stop();
-      if (popup) popup.close();
+      if (popup) popup.stop();
       el.setAttribute('data-hide-live', '');
       emit('end', { campaign: item.slug });
     });
 
-    if (popup) popup.arm();
+    if (popup) popupLive = popup.arm();
+    settle();
     emit('show', { campaign: item.slug, banner: !!banner, popup: !!popup });
   }
 
@@ -585,8 +654,7 @@
   }
 
   function run() {
-    var params;
-    try { params = new URLSearchParams(location.search); } catch (e) { params = { get: function () { return null; } }; }
+    var params = new URLSearchParams(location.search);
     local = store('localStorage');
     session = store('sessionStorage');
     debugOn = params.get('lddebug') === '1';
@@ -595,7 +663,7 @@
     if (params.get('ldoff') === '0') session.del('ldg_off');
     if (params.get('ldreset') === '1') {
       ['geo_country'].forEach(local.del);
-      ['ldg_geo', 'ldg_popup_session', 'ldg_off'].forEach(session.del);
+      ['ldg_geo', 'ldg_geo_failed', 'ldg_popup_session', 'ldg_off'].forEach(session.del);
       try {
         Object.keys(window.localStorage).forEach(function (k) { if (/^ldg_(bar|popup)_/.test(k)) local.del(k); });
       } catch (e) { /* storage blocked */ }
@@ -619,7 +687,7 @@
 
     var previewSlug = params.get('ldpreview');
     if (previewSlug) {
-      var forced = items.filter(function (it) { return it.slug === previewSlug; })[0];
+      var forced = items.find(function (it) { return it.slug === previewSlug; });
       if (forced && !forced.error) {
         state.campaign = forced.slug;
         state.preview = true;

@@ -237,11 +237,11 @@
   }
 
   function readItems() {
-    return toArray(document.querySelectorAll('[data-ldg-campaign]')).map(function (el) {
+    return toArray(document.querySelectorAll('[data-campaign]')).map(function (el) {
       function attr(a) { return (el.getAttribute(a) || '').trim(); }
-      var sd = parseDate(attr('data-ldg-start')), ed = parseDate(attr('data-ldg-end'));
+      var sd = parseDate(attr('data-campaign-start')), ed = parseDate(attr('data-campaign-end'));
       var countries = [], bad = [];
-      toArray(el.querySelectorAll('[data-ldg-country]')).forEach(function (c) {
+      toArray(el.querySelectorAll('[data-campaign-country]')).forEach(function (c) {
         var raw = (c.textContent || '').trim();
         if (!raw) return;
         var iso = cleanCountry(raw);
@@ -249,11 +249,11 @@
       });
       var item = {
         el: el,
-        slug: attr('data-ldg-campaign'),
-        live: toBool(attr('data-ldg-live')),
+        slug: attr('data-campaign'),
+        live: toBool(attr('data-campaign-live')),
         countries: countries,
-        exclude: parsePatterns(attr('data-ldg-exclude')),
-        raw: { start: attr('data-ldg-start'), end: attr('data-ldg-end'), startTime: attr('data-ldg-start-time'), endTime: attr('data-ldg-end-time') }
+        exclude: parsePatterns(attr('data-campaign-exclude')),
+        raw: { start: attr('data-campaign-start'), end: attr('data-campaign-end'), startTime: attr('data-campaign-start-time'), endTime: attr('data-campaign-end-time') }
       };
       if (!sd || !ed) item.error = 'unreadable date (' + item.raw.start + ' / ' + item.raw.end + ')';
       else {
@@ -396,11 +396,11 @@
   }
 
   function mountForm(item, popup) {
-    var box = find(popup, '[data-ldg-form]');
-    if (!box || box.getAttribute('data-ldg-mounted')) return;
-    var formId = (box.getAttribute('data-ldg-hs-form') || '').trim();
+    var box = find(popup, '[data-campaign-form]');
+    if (!box || box.getAttribute('data-campaign-mounted')) return;
+    var formId = (box.getAttribute('data-campaign-hs-form') || '').trim();
     if (!formId) { log('no HubSpot form ID on', item.slug); return; }
-    box.setAttribute('data-ldg-mounted', '1');
+    box.setAttribute('data-campaign-mounted', '1');
     if (!box.id) box.id = 'ldg-form-' + item.slug;
     loadHubspot(function () {
       if (!window.hbspt || !window.hbspt.forms) { log('HubSpot forms unavailable'); return; }
@@ -414,9 +414,10 @@
   // iframe: a standard HubSpot embed renders the form inside one
   var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
 
+  // popup = the overlay ([data-campaign-dialog]); dialog = the panel inside it ([data-campaign-panel])
   function createPopup(item, popup, opts) {
-    var dialog = find(popup, '[data-ldg-dialog]') || popup;
-    var title = find(popup, '[data-ldg-title]');
+    var dialog = find(popup, '[data-campaign-panel]') || popup;
+    var title = find(popup, '[data-campaign-title]');
     var lastFocus = null, isOpen = false, onOut = null;
 
     dialog.setAttribute('role', 'dialog');
@@ -513,8 +514,8 @@
 
   function startCountdown(item, onEnd) {
     var units = { days: [], hours: [], minutes: [], seconds: [] };
-    toArray(item.el.querySelectorAll('[data-countdown]')).forEach(function (el) {
-      var u = el.getAttribute('data-countdown');
+    toArray(item.el.querySelectorAll('[data-campaign-countdown]')).forEach(function (el) {
+      var u = el.getAttribute('data-campaign-countdown');
       if (units[u]) units[u].push(el);
     });
     function set(u, n) { units[u].forEach(function (el) { el.textContent = n < 10 ? '0' + n : String(n); }); }
@@ -565,10 +566,10 @@
 
   function show(item, opts) {
     var el = item.el;
-    var bar = find(el, '[data-ldg-bar]');
-    var popupEl = find(el, '[data-ldg-popup]');
+    var bar = find(el, '[data-campaign-bar]');
+    var popupEl = find(el, '[data-campaign-dialog]');
     var popup = popupEl ? createPopup(item, popupEl, opts) : null;
-    toArray(el.querySelectorAll('[data-ldg-copied]')).forEach(function (l) { l.style.display = 'none'; });
+    toArray(el.querySelectorAll('[data-campaign-copied]')).forEach(function (l) { l.style.display = 'none'; });
 
     var barDismissed = false;
     if (bar && !opts.preview) {
@@ -584,23 +585,23 @@
     function settle() { if (!bannerLive && !popupLive && stopCountdown) stopCountdown(); }
 
     el.addEventListener('click', function (e) {
-      var close = e.target.closest('[data-ldg-close]');
+      var close = e.target.closest('[data-campaign-close]');
       if (close && el.contains(close)) {
         e.preventDefault();
         if (popupEl && popupEl.contains(close)) { if (popup) popup.close(); }
         else if (banner) { banner.close(); bannerLive = false; settle(); }
         return;
       }
-      var copy = e.target.closest('[data-ldg-copy]');
+      var copy = e.target.closest('[data-campaign-copy]');
       if (copy && el.contains(copy)) {
         e.preventDefault();
-        var codeEl = copy.querySelector('[data-ldg-code]');
+        var codeEl = copy.querySelector('[data-campaign-code]');
         if (!codeEl) {                                         // no code element: read the module without its Copied label
           codeEl = copy.cloneNode(true);
-          toArray(codeEl.querySelectorAll('[data-ldg-copied]')).forEach(function (n) { n.remove(); });
+          toArray(codeEl.querySelectorAll('[data-campaign-copied]')).forEach(function (n) { n.remove(); });
         }
         var code = codeEl.textContent.trim();
-        var label = copy.querySelector('[data-ldg-copied]');
+        var label = copy.querySelector('[data-campaign-copied]');
         copyText(code).then(function () {
           if (label) {
             label.style.display = '';

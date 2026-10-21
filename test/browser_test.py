@@ -52,9 +52,9 @@ async def main():
         await p.clock.install(time='2026-12-31T22:59:50Z')        # 23:59:50 in Barcelona, global ends 23:59:59
         await p.goto(BASE + '?ldgeo=US')
         await p.clock.run_for(4000)
-        check('global campaign shows before the end', await p.evaluate("!document.querySelector('[data-ldg-campaign=\"test-global\"]').hasAttribute('data-hide-live')"))
+        check('global campaign shows before the end', await p.evaluate("!document.querySelector('[data-campaign=\"test-global\"]').hasAttribute('data-hide-live')"))
         await p.clock.run_for(8000)                                 # past the end
-        check('campaign hidden after the end', await p.evaluate("document.querySelector('[data-ldg-campaign=\"test-global\"]').hasAttribute('data-hide-live')"))
+        check('campaign hidden after the end', await p.evaluate("document.querySelector('[data-campaign=\"test-global\"]').hasAttribute('data-hide-live')"))
         await exit_intent(p)
         check('no pop-up session flag after the end', await p.evaluate("sessionStorage.getItem('ldg_popup_session')") is None)
         await p.evaluate("document.body.insertAdjacentHTML('afterbegin', '<a id=\"t1\" href=\"#\">one</a><a id=\"t2\" href=\"#\">two</a>'); document.getElementById('t1').focus()")
@@ -69,26 +69,26 @@ async def main():
         await p.goto(BASE + '?ldgeo=US')
         await p.evaluate("""() => {
           const s = document.createElement('script'); s.src = 'https://js.hsforms.net/forms/embed/v2.js'; s.async = true; document.head.appendChild(s);
-          document.querySelector('[data-ldg-campaign="test-global"] [data-ldg-dialog]').insertAdjacentHTML('beforeend', '<div data-ldg-form data-ldg-hs-form="abc"></div>');
+          document.querySelector('[data-campaign="test-global"] [data-campaign-panel]').insertAdjacentHTML('beforeend', '<div data-campaign-form data-campaign-hs-form="abc"></div>');
           document.body.insertAdjacentHTML('beforeend', '<a id="outside" href="#">outside</a>');
         }""")
         await p.wait_for_timeout(3200)
         await exit_intent(p)
         await p.wait_for_timeout(100)
-        check('pop-up opens on exit intent', await p.evaluate("getComputedStyle(document.querySelector('[data-ldg-campaign=\"test-global\"] [data-ldg-popup]')).display") != 'none')
+        check('pop-up opens on exit intent', await p.evaluate("getComputedStyle(document.querySelector('[data-campaign=\"test-global\"] [data-campaign-dialog]')).display") != 'none')
         check('7-day pause set on open, before any close', await p.evaluate("localStorage.getItem('ldg_popup_test-global')") is not None)
         await p.wait_for_timeout(900)
         check('HubSpot script requested once', hs['hs_loads'] == 1, hs['hs_loads'])
         check('one HubSpot script tag', await p.evaluate("document.querySelectorAll('script[src*=\"hsforms.net\"]').length") == 1)
         check('form created once', await p.evaluate("window.hsCreates") == 1, await p.evaluate("window.hsCreates"))
         # Tab order: CTA, Close, iframe
-        await p.evaluate("document.querySelector('[data-ldg-campaign=\"test-global\"] [data-ldg-popup] button').focus()")
+        await p.evaluate("document.querySelector('[data-campaign=\"test-global\"] [data-campaign-dialog] button').focus()")
         await p.keyboard.press('Tab')
         check('Tab reaches the HubSpot iframe', await p.evaluate("document.activeElement.className") == 'hs-form-iframe', await p.evaluate("document.activeElement.tagName"))
         await p.evaluate("document.getElementById('outside').focus()")
-        check('focus pulled back into the dialog', await p.evaluate("!!document.activeElement.closest('[data-ldg-dialog]')"), await p.evaluate("document.activeElement.textContent"))
+        check('focus pulled back into the dialog', await p.evaluate("!!document.activeElement.closest('[data-campaign-panel]')"), await p.evaluate("document.activeElement.textContent"))
         await p.keyboard.press('Escape')
-        check('Escape closes', await p.evaluate("getComputedStyle(document.querySelector('[data-ldg-campaign=\"test-global\"] [data-ldg-popup]')).display") == 'none')
+        check('Escape closes', await p.evaluate("getComputedStyle(document.querySelector('[data-campaign=\"test-global\"] [data-campaign-dialog]')).display") == 'none')
         await p.goto(BASE + '?ldgeo=US&lddebug=1')
         logs = []
         p.on('console', lambda m: logs.append(m.text))
@@ -99,7 +99,7 @@ async def main():
         await p.evaluate("localStorage.clear(); sessionStorage.clear()")
         await p.goto(BASE + '?ldgeo=US'); await p.wait_for_timeout(600)
         before = await p.evaluate("getComputedStyle(document.querySelector('.nav')).marginTop")
-        await p.evaluate("document.querySelector('[data-ldg-campaign=\"test-global\"] [data-ldg-bar]').style.height = '72px'")
+        await p.evaluate("document.querySelector('[data-campaign=\"test-global\"] [data-campaign-bar]').style.height = '72px'")
         await p.wait_for_timeout(200)
         after = await p.evaluate("getComputedStyle(document.querySelector('.nav')).marginTop")
         check('push-down follows the banner height', before == '40px' and after == '72px', (before, after))
@@ -108,12 +108,12 @@ async def main():
         await p.evaluate("""() => {
           window.__copied = [];
           navigator.clipboard.writeText = t => { window.__copied.push(t); return Promise.resolve(); };
-          const c = document.querySelector('[data-ldg-code]'); c.replaceWith(document.createTextNode(c.textContent));
+          const c = document.querySelector('[data-campaign-code]'); c.replaceWith(document.createTextNode(c.textContent));
         }""")
         await p.click('text=TESTGLOBAL'); await p.wait_for_timeout(1500)
         await p.click('text=TESTGLOBAL'); await p.wait_for_timeout(1000)
         check('copies the code only', await p.evaluate("window.__copied[0]") == 'TESTGLOBAL', await p.evaluate("window.__copied"))
-        check('label still shown 2.5 s after the first click', await p.evaluate("getComputedStyle(document.querySelector('[data-ldg-copied]')).display") != 'none')
+        check('label still shown 2.5 s after the first click', await p.evaluate("getComputedStyle(document.querySelector('[data-campaign-copied]')).display") != 'none')
         await ctx.close()
 
         # 5. Failed geo lookup is remembered for the session
@@ -141,7 +141,7 @@ async def main():
         await setup(ctx)
         p = await ctx.new_page(); p.on('pageerror', lambda e: errors.append(str(e)))
         await p.goto(BASE + '?ldgeo=US'); await p.wait_for_timeout(600)
-        sec = "document.querySelector('[data-ldg-campaign=\"test-global\"] [data-countdown=\"seconds\"]').textContent"
+        sec = "document.querySelector('[data-campaign=\"test-global\"] [data-campaign-countdown=\"seconds\"]').textContent"
         a = await p.evaluate(sec); await p.wait_for_timeout(1100); b2 = await p.evaluate(sec)
         check('countdown ticks while the banner shows', a != b2, (a, b2))
         await p.click('text=Close banner'); await p.wait_for_timeout(100)
@@ -154,9 +154,9 @@ async def main():
         await setup(ctx)
         p = await ctx.new_page(); p.on('pageerror', lambda e: errors.append(str(e)))
         await p.goto(BASE + '?ldpreview=test-ended'); await p.wait_for_timeout(400)
-        check('preview shows an ended campaign', await p.evaluate("!document.querySelector('[data-ldg-campaign=\"test-ended\"]').hasAttribute('data-hide-live')"))
+        check('preview shows an ended campaign', await p.evaluate("!document.querySelector('[data-campaign=\"test-ended\"]').hasAttribute('data-hide-live')"))
         await p.goto(BASE + '?ldoff=1&ldgeo=US'); await p.wait_for_timeout(300)
-        check('ldoff turns it off', await p.evaluate("[...document.querySelectorAll('[data-ldg-campaign]:not([data-hide-live])')].length") == 0)
+        check('ldoff turns it off', await p.evaluate("[...document.querySelectorAll('[data-campaign]:not([data-hide-live])')].length") == 0)
         await ctx.close()
 
         check('no page errors', not errors, errors)
